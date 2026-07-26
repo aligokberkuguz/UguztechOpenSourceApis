@@ -1,0 +1,156 @@
+package com.uguztech.urlshortener.controller;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.uguztech.urlshortener.dto.ShortenResponse;
+import com.uguztech.urlshortener.generator.Base62CodeGenerator;
+import com.uguztech.urlshortener.service.UrlShortenerService;
+import com.uguztech.urlshortener.store.InMemoryUrlStore;
+import com.uguztech.webcommon.json.JsonMapperFactory;
+import io.javalin.Javalin;
+import io.javalin.json.JavalinJackson;
+import io.javalin.testtools.JavalinTest;
+import io.javalin.testtools.TestConfig;
+import okhttp3.OkHttpClient;
+import okhttp3.Response;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class UrlShortenerControllerTest {
+
+    private static final String BASE_URL = "http://localhost:7070";
+    private static final ObjectMapper OBJECT_MAPPER = JsonMapperFactory.createObjectMapper();
+
+    // OkHttp varsayılan olarak 302 redirect'i otomatik takip eder (gerçek https://github.com'a
+    // gidip network çağrısı yapardı). Testlerde redirect'i kendimiz doğrulamak istediğimiz için
+    // takibi kapatıyoruz.
+    private static final OkHttpClient NO_REDIRECT_CLIENT = new OkHttpClient.Builder()
+            .followRedirects(false)
+            .build();
+    private static final TestConfig NO_REDIRECT_CONFIG = new TestConfig(true, false, NO_REDIRECT_CLIENT);
+
+    private Javalin createApp() {
+        UrlShortenerService service = new UrlShortenerService(new InMemoryUrlStore(), new Base62CodeGenerator());
+        UrlShortenerController controller = new UrlShortenerController(service, BASE_URL);
+
+        Javalin app = Javalin.create(config ->
+                config.jsonMapper(new JavalinJackson(OBJECT_MAPPER, false))
+        );
+
+        app.post("/api/v1/shorten", controller::shorten);
+        app.get("/{code}", controller::redirect);
+
+        return app;
+    }
+
+    @Test
+    void shortenShouldReturn201WithShortUrlDetails() throws Exception {
+        Javalin app = createApp();
+
+        JavalinTest.test(app, NO_REDIRECT_CONFIG, (server, client) -> {
+            Response response = client.post(
+                    "/api/v1/shorten",
+                    "{\"url\": \"https://example.com\", \"ttlMinutes\": null}"
+            );
+
+            assertEquals(201, response.code());
+
+            ShortenResponse body = OBJECT_MAPPER.readValue(response.body().string(), ShortenResponse.class);
+
+            assertNotNull(body.code());
+            assertEquals("https://example.com", body.originalUrl());
+            assertEquals(BASE_URL + "/" + body.code(), body.shortUrl());
+            assertNotNull(body.createdAt());
+            assertNull(body.expiresAt());
+        });
+    }
+
+    @Test
+    void shortenWithTtlShouldSetExpiresAtAfterCreatedAt() throws Exception {
+        Javalin app = createApp();
+
+        JavalinTest.test(app, NO_REDIRECT_CONFIG, (server, client) -> {
+            Response response = client.post(
+                    "/api/v1/shorten",
+                    "{\"url\": \"https://example.com\", \"ttlMinutes\": 10}"
+            );
+
+            ShortenResponse body = OBJECT_MAPPER.readValue(response.body().string(), ShortenResponse.class);
+
+            assertNotNull(body.expiresAt());
+            assertTrue(body.expiresAt().isAfter(body.createdAt()));
+        });
+    }
+
+    @Test
+    void consecutiveShortenCallsShouldProduceDifferentCodes() throws Exception {
+        Javalin app = createApp();
+
+        JavalinTest.test(app, NO_REDIRECT_CONFIG, (server, client) -> {
+            Response firstResponse = client.post(
+                    "/api/v1/shorten",
+                    "{\"url\": \"https://first.com\", \"ttlMinutes\": null}"
+            );
+            Response secondResponse = client.post(
+                    "/api/v1/shorten",
+                    "{\"url\": \"https://second.com\", \"ttlMinutes\": null}"
+            );
+
+            ShortenResponse first = OBJECT_MAPPER.readValue(firstResponse.body().string(), ShortenResponse.class);
+            ShortenResponse second = OBJECT_MAPPER.readValue(secondResponse.body().string(), ShortenResponse.class);
+
+            assertNotNull(first.code());
+            assertNotNull(second.code());
+            assertTrue(!first.code().equals(second.code()));
+        });
+    }
+
+    @Test
+    void redirectShouldReturn302WithLocationHeaderForExistingCode() throws Exception {
+        Javalin app = createApp();
+
+        JavalinTest.test(app, NO_REDIRECT_CONFIG, (server, client) -> {
+            Response shortenResponse = client.post(
+                    "/api/v1/shorten",
+                    "{\"url\": \"https://github.com\", \"ttlMinutes\": null}"
+            );
+            ShortenResponse shortUrl = OBJECT_MAPPER.readValue(shortenResponse.body().string(), ShortenResponse.class);
+
+            Response redirectResponse = client.get("/" + shortUrl.code());
+
+            assertEquals(302, redirectResponse.code());
+            assertEquals("https://github.com", redirectResponse.header("Location"));
+        });
+    }
+
+    @Test
+    void redirectShouldReturn404ForUnknownCode() throws Exception {
+        Javalin app = createApp();
+
+        JavalinTest.test(app, NO_REDIRECT_CONFIG, (server, client) -> {
+            Response response = client.get("/doesnotexist");
+            assertEquals(404, response.code());
+        });
+    }
+
+    @Test
+    void redirectShouldReturn404ForExpiredCode() throws Exception {
+        Javalin app = createApp();
+
+        JavalinTest.test(app, NO_REDIRECT_CONFIG, (server, client) -> {
+            // Negatif ttl, expiresAt'in oluşturma anından önce olmasını sağlar -> anında "expired" olur.
+            Response shortenResponse = client.post(
+                    "/api/v1/shorten",
+                    "{\"url\": \"https://example.com\", \"ttlMinutes\": -1}"
+            );
+            ShortenResponse shortUrl = OBJECT_MAPPER.readValue(shortenResponse.body().string(), ShortenResponse.class);
+
+            Response redirectResponse = client.get("/" + shortUrl.code());
+
+            assertEquals(404, redirectResponse.code());
+        });
+    }
+}

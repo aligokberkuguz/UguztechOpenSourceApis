@@ -6,7 +6,7 @@ import com.uguztech.urlshortener.service.UrlShortenerService;
 import com.uguztech.urlshortener.store.InMemoryUrlStore;
 import io.javalin.Javalin;
 import io.javalin.json.JavalinJackson;
-import uguztech.webcommon.json.JsonMapperFactory;
+import com.uguztech.webcommon.json.JsonMapperFactory;
 
 public class Main {
     public static void main(String[] args) {
