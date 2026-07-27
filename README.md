@@ -162,3 +162,7 @@ Each new helper API should follow the same pattern as `url-shortener-*`:
 ## Contributing
 
 Issues and pull requests are welcome. Please keep new APIs framework-light (POJO + Javalin) and make sure `mvn test` passes before submitting a PR.
+
+## License
+
+MIT — see [LICENSE](LICENSE) for details.
