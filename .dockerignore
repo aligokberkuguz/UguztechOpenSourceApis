@@ -1,0 +1,8 @@
+target/
+.git/
+.idea/
+.env
+*.log
+.mvn/
+*.iml
+.DS_Store

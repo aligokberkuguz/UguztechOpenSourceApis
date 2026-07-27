@@ -7,6 +7,12 @@ import com.uguztech.urlshortener.service.UrlShortenerService;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import io.javalin.http.NotFoundResponse;
+import io.javalin.openapi.HttpMethod;
+import io.javalin.openapi.OpenApi;
+import io.javalin.openapi.OpenApiContent;
+import io.javalin.openapi.OpenApiParam;
+import io.javalin.openapi.OpenApiRequestBody;
+import io.javalin.openapi.OpenApiResponse;
 
 import java.time.Duration;
 import java.util.Optional;
@@ -21,6 +27,19 @@ public class UrlShortenerController {
         this.BASE_URL = BASE_URL;
     }
 
+    @OpenApi(
+            path = "/api/v1/shorten",
+            methods = HttpMethod.POST,
+            operationId = "shorten",
+            summary = "Shorten a URL",
+            description = "Creates a short code for the given URL, optionally expiring after ttlMinutes.",
+            tags = {"URL Shortener"},
+            requestBody = @OpenApiRequestBody(content = {@OpenApiContent(from = ShortenRequest.class)}),
+            responses = {
+                    @OpenApiResponse(status = "201", description = "Short URL created", content = {@OpenApiContent(from = ShortenResponse.class)}),
+                    @OpenApiResponse(status = "400", description = "Invalid url or ttlMinutes")
+            }
+    )
     public void shorten(Context ctx) {
         ShortenRequest request = ctx.bodyAsClass(ShortenRequest.class);
 
@@ -56,6 +75,19 @@ public class UrlShortenerController {
         }
     }
 
+    @OpenApi(
+            path = "/{code}",
+            methods = HttpMethod.GET,
+            operationId = "redirect",
+            summary = "Redirect to the original URL",
+            description = "Resolves a short code and redirects (302) to the original URL if it exists and has not expired.",
+            tags = {"URL Shortener"},
+            pathParams = {@OpenApiParam(name = "code", description = "Short code", required = true, type = String.class)},
+            responses = {
+                    @OpenApiResponse(status = "302", description = "Redirect to the original URL"),
+                    @OpenApiResponse(status = "404", description = "Short URL not found or expired")
+            }
+    )
     public void redirect(Context ctx){
         String code = ctx.pathParam("code");
 

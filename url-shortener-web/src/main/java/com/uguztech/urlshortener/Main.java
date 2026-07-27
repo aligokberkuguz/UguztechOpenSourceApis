@@ -6,6 +6,8 @@ import com.uguztech.urlshortener.service.UrlShortenerService;
 import com.uguztech.urlshortener.store.InMemoryUrlStore;
 import io.javalin.Javalin;
 import io.javalin.json.JavalinJackson;
+import io.javalin.openapi.plugin.OpenApiPlugin;
+import io.javalin.openapi.plugin.swagger.SwaggerPlugin;
 import com.uguztech.webcommon.json.JsonMapperFactory;
 import com.uguztech.webcommon.cors.CorsConfigurer;
 import io.github.cdimascio.dotenv.Dotenv;
@@ -30,6 +32,19 @@ public class Main {
         Javalin app = Javalin.create(config -> {
             config.jsonMapper(new JavalinJackson(JsonMapperFactory.createObjectMapper(), false));
             CorsConfigurer.configure(config, allowedOrigins);
+
+            config.registerPlugin(new OpenApiPlugin(openApiConfig -> openApiConfig
+                    .withDocumentationPath("/openapi")
+                    .withDefinitionConfiguration((version, definition) -> definition
+                            .withInfo(info -> info
+                                    .title("UguztechOpenSourceApis - URL Shortener")
+                                    .description("Open source URL shortener API")
+                            )
+                    )
+            ));
+            config.registerPlugin(new SwaggerPlugin(swaggerConfig ->
+                    swaggerConfig.setDocumentationPath("/openapi")
+            ));
         }).start(7070);
 
         app.post("/api/v1/shorten", controller::shorten);

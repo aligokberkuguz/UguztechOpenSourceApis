@@ -1,0 +1,13 @@
+services:
+  url-shortener:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: uguztech/url-shortener-web:latest
+    container_name: url-shortener-web
+    ports:
+      - "7070:7070"
+    environment:
+      BASE_URL: ${BASE_URL:-http://localhost:7070}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-*}
+    restart: unless-stopped
