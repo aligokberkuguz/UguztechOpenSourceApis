@@ -136,21 +136,92 @@ class UrlShortenerControllerTest {
         });
     }
 
+    // Not: "expired short url" senaryosu (negatif Duration ile) zaten
+    // UrlShortenerServiceTest (core modülü) içinde servis seviyesinde test ediliyor.
+    // Web katmanında artık negatif ttlMinutes bir validasyon hatası (400) olarak
+    // reddedildiği için o senaryoyu burada tekrar üretmek mümkün değil / anlamsız.
+
     @Test
-    void redirectShouldReturn404ForExpiredCode() throws Exception {
+    void shortenShouldReturn400WhenUrlIsBlank() throws Exception {
         Javalin app = createApp();
 
         JavalinTest.test(app, NO_REDIRECT_CONFIG, (server, client) -> {
-            // Negatif ttl, expiresAt'in oluşturma anından önce olmasını sağlar -> anında "expired" olur.
-            Response shortenResponse = client.post(
+            Response response = client.post(
+                    "/api/v1/shorten",
+                    "{\"url\": \"\", \"ttlMinutes\": null}"
+            );
+
+            assertEquals(400, response.code());
+        });
+    }
+
+    @Test
+    void shortenShouldReturn400WhenUrlIsMissing() throws Exception {
+        Javalin app = createApp();
+
+        JavalinTest.test(app, NO_REDIRECT_CONFIG, (server, client) -> {
+            Response response = client.post(
+                    "/api/v1/shorten",
+                    "{\"ttlMinutes\": null}"
+            );
+
+            assertEquals(400, response.code());
+        });
+    }
+
+    @Test
+    void shortenShouldReturn400WhenUrlIsNotAValidUrl() throws Exception {
+        Javalin app = createApp();
+
+        JavalinTest.test(app, NO_REDIRECT_CONFIG, (server, client) -> {
+            Response response = client.post(
+                    "/api/v1/shorten",
+                    "{\"url\": \"not-a-valid-url\", \"ttlMinutes\": null}"
+            );
+
+            assertEquals(400, response.code());
+        });
+    }
+
+    @Test
+    void shortenShouldReturn400WhenUrlSchemeIsNotHttpOrHttps() throws Exception {
+        Javalin app = createApp();
+
+        JavalinTest.test(app, NO_REDIRECT_CONFIG, (server, client) -> {
+            Response response = client.post(
+                    "/api/v1/shorten",
+                    "{\"url\": \"ftp://example.com\", \"ttlMinutes\": null}"
+            );
+
+            assertEquals(400, response.code());
+        });
+    }
+
+    @Test
+    void shortenShouldReturn400WhenTtlMinutesIsZero() throws Exception {
+        Javalin app = createApp();
+
+        JavalinTest.test(app, NO_REDIRECT_CONFIG, (server, client) -> {
+            Response response = client.post(
+                    "/api/v1/shorten",
+                    "{\"url\": \"https://example.com\", \"ttlMinutes\": 0}"
+            );
+
+            assertEquals(400, response.code());
+        });
+    }
+
+    @Test
+    void shortenShouldReturn400WhenTtlMinutesIsNegative() throws Exception {
+        Javalin app = createApp();
+
+        JavalinTest.test(app, NO_REDIRECT_CONFIG, (server, client) -> {
+            Response response = client.post(
                     "/api/v1/shorten",
                     "{\"url\": \"https://example.com\", \"ttlMinutes\": -1}"
             );
-            ShortenResponse shortUrl = OBJECT_MAPPER.readValue(shortenResponse.body().string(), ShortenResponse.class);
 
-            Response redirectResponse = client.get("/" + shortUrl.code());
-
-            assertEquals(404, redirectResponse.code());
+            assertEquals(400, response.code());
         });
     }
 }
