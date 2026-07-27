@@ -1,17 +1,22 @@
 package com.uguztech.urlshortener.store;
 
 import com.uguztech.urlshortener.model.ShortUrl;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 class InMemoryUrlStoreTest {
 
-    private final UrlStore store = new InMemoryUrlStore();
+    private InMemoryUrlStore store = new InMemoryUrlStore();
+
+    @AfterEach
+    void tearDown() {
+        store.shutdown(); // executor temizliği
+    }
 
     @Test
     void savedShortUrlShouldBeFoundByCode() {
@@ -53,5 +58,38 @@ class InMemoryUrlStoreTest {
 
         assertEquals("https://first.com", store.findByCode("code1").get().originalUrl());
         assertEquals("https://second.com", store.findByCode("code2").get().originalUrl());
+    }
+
+    @Test
+    void removeExpiredShouldDeleteOnlyExpiredUrls() {
+        Instant now = Instant.now();
+        Instant past = now.minusSeconds(60);
+        Instant future = now.plusSeconds(3600);
+
+        ShortUrl expired = new ShortUrl("exp001", "https://expired.com", past.minusSeconds(120), past);
+        ShortUrl active = new ShortUrl("act001", "https://active.com", now, future);
+        ShortUrl neverExpires = new ShortUrl("nev001", "https://never.com", now, null);
+
+        store.save(expired);
+        store.save(active);
+        store.save(neverExpires);
+
+        store.removeExpired(); // package-private metodu direkt çağır
+
+        assertTrue(store.findByCode("exp001").isEmpty(), "Expired URL should be removed");
+        assertTrue(store.findByCode("act001").isPresent(), "Active URL should still exist");
+        assertTrue(store.findByCode("nev001").isPresent(), "Never-expiring URL should still exist");
+    }
+
+    @Test
+    void removeExpiredShouldNotFailOnEmptyStore() {
+        assertDoesNotThrow(() -> store.removeExpired());
+    }
+
+    @Test
+    void shutdownShouldBeIdempotent() {
+        store.shutdown();
+        // executor durduktan sonra tekrar çağrılsa bile exception fırlatmamalı
+        assertDoesNotThrow(() -> store.shutdown());
     }
 }

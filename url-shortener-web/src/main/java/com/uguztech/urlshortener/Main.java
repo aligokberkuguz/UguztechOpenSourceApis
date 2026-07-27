@@ -26,12 +26,15 @@ public class Main {
                 .map(String::trim)
                 .toList();
 
-        UrlShortenerService service = new UrlShortenerService(new InMemoryUrlStore(), new Base62CodeGenerator());
+        InMemoryUrlStore store = new InMemoryUrlStore();
+        UrlShortenerService service = new UrlShortenerService(store, new Base62CodeGenerator());
+
         UrlShortenerController controller = new UrlShortenerController(service, baseUrl);
 
         Javalin app = Javalin.create(config -> {
             config.jsonMapper(new JavalinJackson(JsonMapperFactory.createObjectMapper(), false));
             CorsConfigurer.configure(config, allowedOrigins);
+            config.events(event -> event.serverStopping(store::shutdown));
 
             config.registerPlugin(new OpenApiPlugin(openApiConfig -> openApiConfig
                     .withDocumentationPath("/openapi")
