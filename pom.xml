@@ -36,4 +36,14 @@
         </dependency>
     </dependencies>
 
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-stdlib</artifactId>
+                <version>1.9.25</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
 </project>
