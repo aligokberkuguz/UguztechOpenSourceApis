@@ -4,6 +4,7 @@ import com.uguztech.urlshortener.controller.UrlShortenerController;
 import com.uguztech.urlshortener.generator.Base62CodeGenerator;
 import com.uguztech.urlshortener.service.UrlShortenerService;
 import com.uguztech.urlshortener.store.InMemoryUrlStore;
+import com.uguztech.webcommon.error.ErrorHandler;
 import io.javalin.Javalin;
 import io.javalin.json.JavalinJackson;
 import io.javalin.openapi.plugin.OpenApiPlugin;
@@ -49,6 +50,8 @@ public class Main {
                     swaggerConfig.setDocumentationPath("/openapi")
             ));
         }).start(7070);
+
+        ErrorHandler.register(app);
 
         app.post("/api/v1/shorten", controller::shorten);
         app.get("/{code}", controller::redirect);

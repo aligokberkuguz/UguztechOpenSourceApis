@@ -5,6 +5,8 @@ import com.uguztech.urlshortener.dto.ShortenResponse;
 import com.uguztech.urlshortener.generator.Base62CodeGenerator;
 import com.uguztech.urlshortener.service.UrlShortenerService;
 import com.uguztech.urlshortener.store.InMemoryUrlStore;
+import com.uguztech.webcommon.error.ErrorHandler;
+import com.uguztech.webcommon.error.ProblemDetail;
 import com.uguztech.webcommon.json.JsonMapperFactory;
 import io.javalin.Javalin;
 import io.javalin.json.JavalinJackson;
@@ -15,6 +17,7 @@ import okhttp3.Response;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -24,9 +27,6 @@ class UrlShortenerControllerTest {
     private static final String BASE_URL = "http://localhost:7070";
     private static final ObjectMapper OBJECT_MAPPER = JsonMapperFactory.createObjectMapper();
 
-    // OkHttp varsayılan olarak 302 redirect'i otomatik takip eder (gerçek https://github.com'a
-    // gidip network çağrısı yapardı). Testlerde redirect'i kendimiz doğrulamak istediğimiz için
-    // takibi kapatıyoruz.
     private static final OkHttpClient NO_REDIRECT_CLIENT = new OkHttpClient.Builder()
             .followRedirects(false)
             .build();
@@ -40,10 +40,25 @@ class UrlShortenerControllerTest {
                 config.jsonMapper(new JavalinJackson(OBJECT_MAPPER, false))
         );
 
+        ErrorHandler.register(app); // Main.java'daki global hata handler'ı burada da kayıtlı olmalı
+
         app.post("/api/v1/shorten", controller::shorten);
         app.get("/{code}", controller::redirect);
 
         return app;
+    }
+
+    // Hata response'unun RFC 7807 sözleşmesine (content-type + zorunlu alanlar) uyduğunu doğrular.
+    private void assertProblemDetail(Response response, int expectedStatus) throws Exception {
+        assertTrue(response.header("Content-Type").startsWith("application/problem+json"));
+
+        ProblemDetail problem = OBJECT_MAPPER.readValue(response.body().string(), ProblemDetail.class);
+
+        assertEquals(expectedStatus, problem.status());
+        assertNotNull(problem.detail());
+        assertFalse(problem.detail().isBlank());
+        assertNotNull(problem.title());
+        assertNotNull(problem.instance());
     }
 
     @Test
@@ -133,6 +148,7 @@ class UrlShortenerControllerTest {
         JavalinTest.test(app, NO_REDIRECT_CONFIG, (server, client) -> {
             Response response = client.get("/doesnotexist");
             assertEquals(404, response.code());
+            assertProblemDetail(response, 404);
         });
     }
 
@@ -152,6 +168,7 @@ class UrlShortenerControllerTest {
             );
 
             assertEquals(400, response.code());
+            assertProblemDetail(response, 400);
         });
     }
 
@@ -166,6 +183,7 @@ class UrlShortenerControllerTest {
             );
 
             assertEquals(400, response.code());
+            assertProblemDetail(response, 400);
         });
     }
 
@@ -180,6 +198,7 @@ class UrlShortenerControllerTest {
             );
 
             assertEquals(400, response.code());
+            assertProblemDetail(response, 400);
         });
     }
 
@@ -194,6 +213,7 @@ class UrlShortenerControllerTest {
             );
 
             assertEquals(400, response.code());
+            assertProblemDetail(response, 400);
         });
     }
 
@@ -208,6 +228,7 @@ class UrlShortenerControllerTest {
             );
 
             assertEquals(400, response.code());
+            assertProblemDetail(response, 400);
         });
     }
 
@@ -222,6 +243,7 @@ class UrlShortenerControllerTest {
             );
 
             assertEquals(400, response.code());
+            assertProblemDetail(response, 400);
         });
     }
 }
