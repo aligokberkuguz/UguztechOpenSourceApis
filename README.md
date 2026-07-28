@@ -8,15 +8,18 @@ Each API lives in its own set of Maven modules so it can be built, tested and de
 
 - [Available APIs](#available-apis)
 - [Architecture](#architecture)
+- [Data Storage](#data-storage)
 - [Getting Started (local development)](#getting-started-local-development)
 - [Environment Variables](#environment-variables)
 - [Running with Docker](#running-with-docker)
 - [API Reference — URL Shortener](#api-reference--url-shortener)
+- [Error Responses](#error-responses)
 - [Interactive Docs (Swagger UI)](#interactive-docs-swagger-ui)
 - [CORS](#cors)
 - [Running Tests](#running-tests)
 - [Adding a New API to this Repo](#adding-a-new-api-to-this-repo)
 - [Contributing](#contributing)
+- [License](#license)
 
 ## Available APIs
 
@@ -32,7 +35,7 @@ The repo is a single **multi-module Maven project**. Each API is split into:
 
 - **`<api>-core`** — pure business logic (models, services, storage). No web framework dependency, no I/O framework. Fully unit-testable in isolation.
 - **`<api>-web`** — the HTTP layer for that API (Javalin controllers, DTOs, the `Main` entry point, `pom.xml` with the Shade plugin to build a runnable fat-jar).
-- **`web-common`** — shared web-layer utilities used by every `*-web` module: CORS configuration, Jackson `ObjectMapper` factory (Java 8 time support), env/config helpers.
+- **`web-common`** — shared web-layer utilities used by every `*-web` module: CORS configuration, Jackson `ObjectMapper` factory (Java 8 time support), RFC 7807 error handling (`ErrorHandler`, `ProblemDetail`), env/config helpers.
 
 ```
 UguztechOpenSourceApis/
@@ -44,7 +47,19 @@ UguztechOpenSourceApis/
 
 This separation means the `-core` module of any API can be reused as a plain Java library (e.g. embedded in another app) without pulling in Javalin at all.
 
+## Data Storage
+
+Short URLs are stored **in memory only** — there is no database and no file persistence:
+
+- Storage is a `ConcurrentHashMap` under the hood (`InMemoryUrlStore`), safe for concurrent access from multiple request threads.
+- All shortened URLs are lost when the application restarts.
+- Entries past their `ttlMinutes` are actively purged by a background scheduler that runs once a minute, so memory doesn't grow unbounded from stale, expired entries.
+
+This is intentional for a lightweight helper API. If you need durable storage, implement the `UrlStore` interface with a persistent backend (e.g. Redis, Postgres) and wire it into `Main.java` in place of `InMemoryUrlStore` — the rest of the application doesn't need to change.
+
 ## Getting Started (local development)
+
+**Prerequisites:** JDK 21, Maven 3.9+.
 
 Day-to-day development is **not** meant to happen inside Docker — it's meant to be as simple as running a `main` method from your IDE.
 
@@ -116,17 +131,41 @@ curl -X POST http://localhost:7070/api/v1/shorten \
 }
 ```
 
-Validation rules (returns `400 Bad Request` with a message if violated):
+Validation rules (returns `400 Bad Request` — see [Error Responses](#error-responses) for the response format):
 - `url` must be present, non-blank, and an absolute `http`/`https` URL.
 - `ttlMinutes`, if provided, must be a positive number.
 
 ### `GET /{code}`
 
-Redirects (`302`) to the original URL. Returns `404 Not Found` if the code doesn't exist or has expired.
+Redirects (`302`) to the original URL. Returns `404 Not Found` (see [Error Responses](#error-responses)) if the code doesn't exist or has expired.
 
 ```bash
 curl -i http://localhost:7070/000001
 ```
+
+## Error Responses
+
+All error responses (validation failures, not-found, unexpected server errors) follow the [RFC 7807](https://www.rfc-editor.org/rfc/rfc7807) `application/problem+json` format:
+
+```json
+{
+  "type": "about:blank",
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "url must not be blank",
+  "instance": "/api/v1/shorten"
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `type` | A URI identifying the problem type. Currently always `about:blank` (no dedicated problem-type pages yet). |
+| `title` | Short, human-readable summary of the HTTP status (e.g. `Bad Request`, `Not Found`). |
+| `status` | The HTTP status code, duplicated in the body for convenience. |
+| `detail` | Specific, request-level explanation (e.g. which validation rule failed). |
+| `instance` | The request path that produced the error. |
+
+This format is provided by the shared `ErrorHandler` utility in `web-common`, so every API in this repo — current and future — returns errors in the same shape automatically.
 
 ## Interactive Docs (Swagger UI)
 
@@ -154,7 +193,7 @@ Runs all unit tests (business logic in `*-core` modules) and integration tests (
 Each new helper API should follow the same pattern as `url-shortener-*`:
 
 1. Create `<name>-core` — pure business logic, no web dependencies, thoroughly unit tested.
-2. Create `<name>-web` — Javalin controllers + DTOs + `Main.java`, depending on `<name>-core` and `web-common`. Add the Shade plugin config (copy from `url-shortener-web/pom.xml`) so it produces a runnable fat-jar.
+2. Create `<name>-web` — Javalin controllers + DTOs + `Main.java`, depending on `<name>-core` and `web-common`. Add the Shade plugin config (copy from `url-shortener-web/pom.xml`) so it produces a runnable fat-jar. In `Main.java`, call `ErrorHandler.register(app)` right after `app.start(...)` so errors follow the shared RFC 7807 format automatically.
 3. Add `@OpenApi` annotations to controller methods for Swagger documentation.
 4. Register the new modules in the root `pom.xml`'s `<modules>` section.
 5. Document the new API's endpoints in this README.
@@ -165,4 +204,4 @@ Issues and pull requests are welcome. Please keep new APIs framework-light (POJO
 
 ## License
 
-MIT — see [LICENSE](LICENSE) for details.
+MIT — see [LICENSE](LICENSE) for the full text. Copyright (c) 2026 Uguztech.
