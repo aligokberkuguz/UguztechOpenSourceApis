@@ -38,7 +38,7 @@ public class Main {
             config.events(event -> event.serverStopping(store::shutdown));
 
             config.registerPlugin(new OpenApiPlugin(openApiConfig -> openApiConfig
-                    .withDocumentationPath("/openapi")
+                    .withDocumentationPath("/shortener/openapi")
                     .withDefinitionConfiguration((version, definition) -> definition
                             .withInfo(info -> info
                                     .title("UguztechOpenSourceApis - URL Shortener")
@@ -46,14 +46,17 @@ public class Main {
                             )
                     )
             ));
-            config.registerPlugin(new SwaggerPlugin(swaggerConfig ->
-                    swaggerConfig.setDocumentationPath("/openapi")
-            ));
+            config.registerPlugin(new SwaggerPlugin(swaggerConfig -> {
+                swaggerConfig.setDocumentationPath("/openapi");
+                swaggerConfig.setUiPath("/shortener/swagger");
+                swaggerConfig.setBasePath("/shortener");
+                swaggerConfig.setWebJarPath("/shortener/webjars/swagger-ui");
+            }));
         }).start(7070);
 
         ErrorHandler.register(app);
 
-        app.post("/api/v1/shorten", controller::shorten);
+        app.post("/shortener/api/v1/shorten", controller::shorten);
         app.get("/{code}", controller::redirect);
     }
 }

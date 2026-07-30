@@ -28,7 +28,7 @@ public class UrlShortenerController {
     }
 
     @OpenApi(
-            path = "/api/v1/shorten",
+            path = "/shortener/api/v1/shorten",
             methods = HttpMethod.POST,
             operationId = "shorten",
             summary = "Shorten a URL",
@@ -97,6 +97,7 @@ public class UrlShortenerController {
             throw new NotFoundResponse("Short URL not found or expired");
         }
 
+        ctx.header("Cache-Control", "no-store");
         ctx.redirect(originalUrl.get());
     }
 }

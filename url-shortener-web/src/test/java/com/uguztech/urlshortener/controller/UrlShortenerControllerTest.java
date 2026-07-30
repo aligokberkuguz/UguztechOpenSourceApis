@@ -42,7 +42,7 @@ class UrlShortenerControllerTest {
 
         ErrorHandler.register(app); // Main.java'daki global hata handler'ı burada da kayıtlı olmalı
 
-        app.post("/api/v1/shorten", controller::shorten);
+        app.post("/shortener/api/v1/shorten", controller::shorten);
         app.get("/{code}", controller::redirect);
 
         return app;
@@ -67,7 +67,7 @@ class UrlShortenerControllerTest {
 
         JavalinTest.test(app, NO_REDIRECT_CONFIG, (server, client) -> {
             Response response = client.post(
-                    "/api/v1/shorten",
+                    "/shortener/api/v1/shorten",
                     "{\"url\": \"https://example.com\", \"ttlMinutes\": null}"
             );
 
@@ -89,7 +89,7 @@ class UrlShortenerControllerTest {
 
         JavalinTest.test(app, NO_REDIRECT_CONFIG, (server, client) -> {
             Response response = client.post(
-                    "/api/v1/shorten",
+                    "/shortener/api/v1/shorten",
                     "{\"url\": \"https://example.com\", \"ttlMinutes\": 10}"
             );
 
@@ -106,11 +106,11 @@ class UrlShortenerControllerTest {
 
         JavalinTest.test(app, NO_REDIRECT_CONFIG, (server, client) -> {
             Response firstResponse = client.post(
-                    "/api/v1/shorten",
+                    "/shortener/api/v1/shorten",
                     "{\"url\": \"https://first.com\", \"ttlMinutes\": null}"
             );
             Response secondResponse = client.post(
-                    "/api/v1/shorten",
+                    "/shortener/api/v1/shorten",
                     "{\"url\": \"https://second.com\", \"ttlMinutes\": null}"
             );
 
@@ -129,7 +129,7 @@ class UrlShortenerControllerTest {
 
         JavalinTest.test(app, NO_REDIRECT_CONFIG, (server, client) -> {
             Response shortenResponse = client.post(
-                    "/api/v1/shorten",
+                    "/shortener/api/v1/shorten",
                     "{\"url\": \"https://github.com\", \"ttlMinutes\": null}"
             );
             ShortenResponse shortUrl = OBJECT_MAPPER.readValue(shortenResponse.body().string(), ShortenResponse.class);
@@ -163,7 +163,7 @@ class UrlShortenerControllerTest {
 
         JavalinTest.test(app, NO_REDIRECT_CONFIG, (server, client) -> {
             Response response = client.post(
-                    "/api/v1/shorten",
+                    "/shortener/api/v1/shorten",
                     "{\"url\": \"\", \"ttlMinutes\": null}"
             );
 
@@ -178,7 +178,7 @@ class UrlShortenerControllerTest {
 
         JavalinTest.test(app, NO_REDIRECT_CONFIG, (server, client) -> {
             Response response = client.post(
-                    "/api/v1/shorten",
+                    "/shortener/api/v1/shorten",
                     "{\"ttlMinutes\": null}"
             );
 
@@ -193,7 +193,7 @@ class UrlShortenerControllerTest {
 
         JavalinTest.test(app, NO_REDIRECT_CONFIG, (server, client) -> {
             Response response = client.post(
-                    "/api/v1/shorten",
+                    "/shortener/api/v1/shorten",
                     "{\"url\": \"not-a-valid-url\", \"ttlMinutes\": null}"
             );
 
@@ -208,7 +208,7 @@ class UrlShortenerControllerTest {
 
         JavalinTest.test(app, NO_REDIRECT_CONFIG, (server, client) -> {
             Response response = client.post(
-                    "/api/v1/shorten",
+                    "/shortener/api/v1/shorten",
                     "{\"url\": \"ftp://example.com\", \"ttlMinutes\": null}"
             );
 
@@ -223,7 +223,7 @@ class UrlShortenerControllerTest {
 
         JavalinTest.test(app, NO_REDIRECT_CONFIG, (server, client) -> {
             Response response = client.post(
-                    "/api/v1/shorten",
+                    "/shortener/api/v1/shorten",
                     "{\"url\": \"https://example.com\", \"ttlMinutes\": 0}"
             );
 
@@ -238,7 +238,7 @@ class UrlShortenerControllerTest {
 
         JavalinTest.test(app, NO_REDIRECT_CONFIG, (server, client) -> {
             Response response = client.post(
-                    "/api/v1/shorten",
+                    "/shortener/api/v1/shorten",
                     "{\"url\": \"https://example.com\", \"ttlMinutes\": -1}"
             );
 
