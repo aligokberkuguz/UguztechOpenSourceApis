@@ -1,0 +1,11 @@
+{$API_DOMAIN} {
+    tls /certs/api-domain.pem /certs/api-domain-key.pem
+    handle /shortener/* {
+        reverse_proxy url-shortener-web:7070
+    }
+}
+
+{$SHORT_DOMAIN} {
+    tls /certs/short-domain.pem /certs/short-domain-key.pem
+    reverse_proxy url-shortener-web:7070
+}
