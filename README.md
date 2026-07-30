@@ -112,9 +112,7 @@ docker compose down
 
 ## Deployment
 
-Production runs behind [Caddy](https://caddyserver.com) (see the `caddy` service in `docker-compose.yml` and the root `Caddyfile`), fronted by Cloudflare in proxy mode. TLS is terminated by Caddy using **Cloudflare Origin Certificates** rather than Caddy's automatic Let's Encrypt HTTPS.
-
-Origin Certificates must be generated manually from the Cloudflare dashboard (SSL/TLS → Origin Server) and placed **outside version control** — e.g. in a `certs/` directory at the repo root on the VPS (already git-ignored), mounted read-only into the `caddy` container via `./certs:/certs:ro`. Never commit certificate or key files to this repository.
+This service is expected to run behind a host-level reverse proxy (e.g. nginx) that terminates TLS and forwards requests to `127.0.0.1:7070`. TLS certificates are managed at the host level (e.g. via certbot/Let's Encrypt) and are outside the scope of this repository — this repo only publishes the app on a local port.
 
 ## API Reference — URL Shortener
 

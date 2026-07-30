@@ -5,36 +5,9 @@ services:
       dockerfile: Dockerfile
     image: uguztech/url-shortener-web:latest
     container_name: url-shortener-web
+    ports:
+      - "127.0.0.1:7070:7070"
     environment:
       BASE_URL: ${BASE_URL:-http://localhost:7070}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-*}
     restart: unless-stopped
-    networks:
-      - webnet
-
-  caddy:
-    image: caddy:2-alpine
-    container_name: caddy
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      API_DOMAIN: ${API_DOMAIN}
-      SHORT_DOMAIN: ${SHORT_DOMAIN}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./certs:/certs:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    restart: unless-stopped
-    depends_on:
-      - url-shortener
-    networks:
-      - webnet
-
-networks:
-  webnet:
-
-volumes:
-  caddy_data:
-  caddy_config:
