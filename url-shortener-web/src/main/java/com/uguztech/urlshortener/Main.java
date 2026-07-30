@@ -50,7 +50,6 @@ public class Main {
                 swaggerConfig.setDocumentationPath("/openapi");
                 swaggerConfig.setUiPath("/shortener/swagger");
                 swaggerConfig.setBasePath("/shortener");
-                swaggerConfig.setWebJarPath("/shortener/webjars/swagger-ui");
             }));
         }).start(7070);
 
