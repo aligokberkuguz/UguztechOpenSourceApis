@@ -47,9 +47,8 @@ public class Main {
                     )
             ));
             config.registerPlugin(new SwaggerPlugin(swaggerConfig -> {
-                swaggerConfig.setDocumentationPath("/openapi");
+                swaggerConfig.setDocumentationPath("/shortener/openapi");
                 swaggerConfig.setUiPath("/shortener/swagger");
-                swaggerConfig.setBasePath("/shortener");
             }));
         }).start(7070);
 
