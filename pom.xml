@@ -28,6 +28,8 @@
         <module>web-common</module>
         <module>url-shortener-core</module>
         <module>url-shortener-web</module>
+        <module>qr-generator-core</module>
+        <module>qr-generator-web</module>
     </modules>
 
     <dependencies>

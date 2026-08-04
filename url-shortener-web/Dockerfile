@@ -2,10 +2,11 @@
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /build
 
-# Cache dependencies separately from source to speed up rebuilds
 COPY pom.xml .
 COPY url-shortener-core/pom.xml url-shortener-core/pom.xml
 COPY url-shortener-web/pom.xml url-shortener-web/pom.xml
+COPY qr-generator-core/pom.xml qr-generator-core/pom.xml
+COPY qr-generator-web/pom.xml qr-generator-web/pom.xml
 COPY web-common/pom.xml web-common/pom.xml
 RUN mvn -q -B dependency:go-offline
 

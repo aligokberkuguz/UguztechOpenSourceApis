@@ -27,6 +27,7 @@ Each API lives in its own set of Maven modules so it can be built, tested and de
 | API | Modules | Status |
 | --- | --- | --- |
 | URL Shortener | `url-shortener-core`, `url-shortener-web` | ✅ Ready |
+| QR Code Generator | `qr-generator-core`, `qr-generator-web` | ✅ Ready |
 
 More helper APIs will be added as separate module groups over time.
 
@@ -43,7 +44,9 @@ UguztechOpenSourceApis/
 ├── pom.xml                  (parent POM — shared dependency management)
 ├── web-common/              (shared web utilities)
 ├── url-shortener-core/      (business logic + unit tests)
-└── url-shortener-web/       (Javalin HTTP layer + integration tests + Main.java)
+├── url-shortener-web/       (Javalin HTTP layer + integration tests + Main.java + Dockerfile)
+├── qr-generator-core/       (business logic + unit tests)
+└── qr-generator-web/        (Javalin HTTP layer + integration tests + Main.java + Dockerfile)
 ```
 
 This separation means the `-core` module of any API can be reused as a plain Java library (e.g. embedded in another app) without pulling in Javalin at all.
@@ -89,15 +92,19 @@ A ready-to-copy template is provided in [`.env.example`](.env.example).
 
 Docker is intended for **pre-production verification** — a quick way to confirm the app behaves the same in a clean, containerized environment as it does in your IDE, and it's also how you'd deploy it in production. There is no separate "Docker dev mode": the same image is used for the final check locally and for shipping to production.
 
+Each `*-web` module owns its own `Dockerfile` (e.g. `url-shortener-web/Dockerfile`, `qr-generator-web/Dockerfile`), keeping every API independently buildable and deployable. `docker-compose.yml` at the repo root wires them together for local orchestration.
+
 ```bash
-# builds the fat-jar inside a Maven+JDK image, then copies it into a slim JRE image
+# builds every service's fat-jar inside a Maven+JDK image, then copies it into a slim JRE image
 docker compose up --build
 ```
 
 This will:
-1. Build every module (`mvn clean package`) inside a `maven:3.9-eclipse-temurin-21` build stage.
-2. Copy only the resulting `url-shortener-web.jar` into an `eclipse-temurin:21-jre-alpine` runtime stage (small final image, no build tools).
-3. Expose the API on `http://localhost:7070`.
+1. Build each module (`mvn clean package -pl <module>-web -am`) inside a `maven:3.9-eclipse-temurin-21` build stage.
+2. Copy only the resulting jar into an `eclipse-temurin:21-jre-alpine` runtime stage (small final image, no build tools).
+3. Expose:
+   - URL Shortener on `http://localhost:7070`
+   - QR Code Generator on `http://localhost:8081`
 
 Environment variables for the container come from your root `.env` file automatically (docker-compose reads it for variable substitution), or you can override them:
 
@@ -148,6 +155,34 @@ Redirects (`302`) to the original URL. Returns `404 Not Found` (see [Error Respo
 curl -i http://localhost:7070/000001
 ```
 
+## API Reference — QR Code Generator
+
+### `POST /qr/api/v1/generate`
+
+Generates a QR code image for the given content.
+
+```bash
+curl -X POST http://localhost:8081/qr/api/v1/generate \
+  -H "Content-Type: application/json" \
+  -d '{"content": "https://github.com", "size": 300, "format": "PNG", "errorCorrection": "M"}' \
+  --output qrcode.png
+```
+
+Request body fields (all optional except `content`):
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `content` | string | — (required) | The text/URL to encode. Must not be blank. |
+| `size` | integer | `300` | Width/height of the generated image in pixels. |
+| `format` | string | `PNG` | Image format: `PNG` or `JPG`. |
+| `errorCorrection` | string | `M` | QR error correction level: `L`, `M`, `Q`, or `H`. |
+
+Returns the raw image bytes with the matching `Content-Type` (`image/png` or `image/jpeg`). Returns `400 Bad Request` (see [Error Responses](#error-responses)) if `content` is missing or blank.
+
+### `GET /qr/health`
+
+Simple liveness check, returns `OK`.
+
 ## Error Responses
 
 All error responses (validation failures, not-found, unexpected server errors) follow the [RFC 7807](https://www.rfc-editor.org/rfc/rfc7807) `application/problem+json` format:
@@ -176,8 +211,10 @@ This format is provided by the shared `ErrorHandler` utility in `web-common`, so
 
 Every `*-web` module exposes an OpenAPI-generated Swagger UI, so you (and anyone integrating with the API) can explore and try requests without writing any client code:
 
-- Swagger UI: `http://localhost:7070/swagger`
-- Raw OpenAPI spec: `http://localhost:7070/openapi`
+| API | Swagger UI | OpenAPI Spec |
+| --- | --- | --- |
+| URL Shortener | `http://localhost:7070/shortener/swagger` | `http://localhost:7070/shortener/openapi` |
+| QR Code Generator | `http://localhost:8081/qr/swagger` | `http://localhost:8081/qr/openapi` |
 
 This is generated at compile time from `@OpenApi` annotations on the controller methods — no manually maintained spec file to keep in sync.
 
@@ -198,7 +235,7 @@ Runs all unit tests (business logic in `*-core` modules) and integration tests (
 Each new helper API should follow the same pattern as `url-shortener-*`:
 
 1. Create `<name>-core` — pure business logic, no web dependencies, thoroughly unit tested.
-2. Create `<name>-web` — Javalin controllers + DTOs + `Main.java`, depending on `<name>-core` and `web-common`. Add the Shade plugin config (copy from `url-shortener-web/pom.xml`) so it produces a runnable fat-jar. In `Main.java`, call `ErrorHandler.register(app)` right after `app.start(...)` so errors follow the shared RFC 7807 format automatically.
+2. Create `<name>-web` — Javalin controllers + DTOs + `Main.java`, depending on `<name>-core` and `web-common`. Add the Shade plugin config (copy from `url-shortener-web/pom.xml`) so it produces a runnable fat-jar. Add a `Dockerfile` inside `<name>-web/` (copy and adapt from `qr-generator-web/Dockerfile`) and wire it into `docker-compose.yml`. In `Main.java`, call `ErrorHandler.register(app)` right after `app.start(...)` so errors follow the shared RFC 7807 format automatically.
 3. Add `@OpenApi` annotations to controller methods for Swagger documentation.
 4. Register the new modules in the root `pom.xml`'s `<modules>` section.
 5. Document the new API's endpoints in this README.
